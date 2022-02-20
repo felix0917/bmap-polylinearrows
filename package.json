@@ -1,0 +1,35 @@
+{
+    "name": "bmap-polylinearrows",
+    "version": "1.0.1",
+    "description": "Draw polyline arrows in BMap or BMapGL",
+    "main": "bmap-polylinearrows.min.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "build": "cross-env NODE_ENV=development rollup -c ./rollup.config.js",
+        "build-min": "cross-env NODE_ENV=production rollup -c ./rollup.config.js",
+        "start": "node app.js"
+    },
+    "keywords": [
+        "BMap",
+        "BMapGL",
+        "arrows",
+        "polylinedecorator"
+    ],
+    "author": "fan li",
+    "license": "ISC",
+    "devDependencies": {
+        "@babel/core": "^7.6.2",
+        "@babel/preset-env": "^7.6.2",
+        "autoprefixer": "^8.0.0",
+        "cross-env": "^7.0.3",
+        "express": "^4.17.1",
+        "postcss-loader": "^6.1.1",
+        "rollup": "^1.21.4",
+        "rollup-plugin-babel": "^4.3.3",
+        "rollup-plugin-commonjs": "^8.0.2",
+        "rollup-plugin-json": "^2.3.0",
+        "rollup-plugin-node-resolve": "^3.0.0",
+        "rollup-plugin-postcss": "^4.0.0",
+        "rollup-plugin-uglify": "^6.0.4"
+    }
+}
