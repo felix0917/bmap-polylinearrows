@@ -65,25 +65,33 @@
 
       _classCallCheck(this, PolylineArrows);
 
-      // 参数
-      this.mapType = mapType;
-      this.map = map;
-      this.data = data;
-      this.icon = icon;
-      this.step = defaultValue(opts.step, 90);
+      this.mapType = mapType; // 地图类型，支持['BMap','BMapGL']
+
+      this.map = map; // 地图实例化对象
+
+      this.data = data; // geojson格式的polyline数据
+
+      this.icon = icon; // 箭头图标
+
+      this.step = defaultValue(opts.step, 90); // 箭头间距
+
       this.iconSize = defaultValue(opts.iconSize, {
         x: 12,
         y: 12
-      });
-      this.correctAngle = defaultValue(opts.correctAngle, 0); // 私有变量
+      }); // 箭头大小，单位px
 
-      this.lines = [];
-      this.arrowOverlays = [];
-      this.arrowGeojsonArr = [];
-      this.moveendHandlerFunc = null;
-      this.zoomendHandlerFunc = null;
+      this.correctAngle = defaultValue(opts.correctAngle, 0); // 图标角度校正：图标的起始角度应该对准水平轴朝右（---->），单位：角度制
+      // 私有变量
+
+      this.linePoints = []; // 扁平化线路坐标数组
+
+      this.arrowOverlays = []; // 箭头覆盖物容器
+
+      this.refreshHandlerFunc = null; // 箭头更新处理函数
+
       this.parseLineData();
       this.initRefreshEvent();
+      this.dispatchArrows(); // 初始化加载
     }
     /**
      * 解析线路数据
@@ -99,11 +107,11 @@
 
         switch (type) {
           case 'LineString':
-            this.lines = geo.coordinates;
+            this.linePoints = geo.coordinates;
             break;
 
           case 'MultiLineString':
-            this.lines = geo.coordinates.flat();
+            this.linePoints = geo.coordinates.flat();
             break;
 
           default:
@@ -119,30 +127,20 @@
     }, {
       key: "initRefreshEvent",
       value: function initRefreshEvent() {
-        this.moveendHandlerFunc = this.moveendHandler.bind(this);
-        this.zoomendHandlerFunc = this.zoomendHandler.bind(this);
+        this.refreshHandlerFunc = this.refreshHandler.bind(this);
 
-        if (this.lines && this.lines.length > 1) {
-          this.map.addEventListener('moveend', this.moveendHandlerFunc);
-          this.map.addEventListener('zoomend', this.zoomendHandlerFunc);
+        if (this.linePoints && this.linePoints.length > 1) {
+          this.map.addEventListener('moveend', this.refreshHandlerFunc);
+          this.map.addEventListener('zoomend', this.refreshHandlerFunc);
         }
       }
       /**
-       * 地图平移结束事件处理
+       * 地图平移缩放结束事件处理
        */
 
     }, {
-      key: "moveendHandler",
-      value: function moveendHandler() {
-        this.dispatchArrows();
-      }
-      /**
-       * 地图缩放结束事件处理
-       */
-
-    }, {
-      key: "zoomendHandler",
-      value: function zoomendHandler() {
+      key: "refreshHandler",
+      value: function refreshHandler() {
         this.dispatchArrows();
       }
       /**
@@ -158,78 +156,82 @@
         var step = that.step;
         var sylength = 0;
         var currrentLength = 0;
-        var currentStart = that.pointToPixel(that.lines[0][0], that.lines[0][1]);
+        var currentStart = that.pointToPixel(that.linePoints[0][0], that.linePoints[0][1]);
         var arrowNode = {};
-        that.lines.map(function (val, index) {
-          if (index !== that.lines.length - 1) {
-            var start = that.pointToPixel(val[0], val[1]);
-            var end = that.pointToPixel(that.lines[index + 1][0], that.lines[index + 1][1]);
-            var dx = end.x - start.x,
-                dy = start.y - end.y;
 
-            if (dx !== 0 || dy !== 0) {
-              // 都为0意味着折线中节点太近，忽略这段距离
-              var rotation = Math.atan2(dy, dx);
-              var nodeDistance;
+        for (var i = 0; i < that.linePoints.length - 1; i++) {
+          var currentLinePoint = that.linePoints[i];
+          var nextLinePoint = that.linePoints[i + 1];
+          var start = that.pointToPixel(currentLinePoint[0], currentLinePoint[1]);
+          var end = that.pointToPixel(nextLinePoint[0], nextLinePoint[1]);
+          var dx = end.x - start.x,
+              dy = start.y - end.y;
 
-              if (rotation === 0) {
-                nodeDistance = dx;
-              } else {
-                nodeDistance = dy / Math.sin(rotation);
+          if (dx === 0 && dy === 0) {
+            // 意味着折线中节点太近，忽略这段距离
+            continue;
+          }
+
+          var rotation = Math.atan2(dy, dx); // 两点旋转角度差
+
+          var nodeDistance = void 0; //  两点像素距离
+
+          if (rotation === 0) {
+            nodeDistance = dx;
+          } else {
+            nodeDistance = dy / Math.sin(rotation);
+          }
+
+          if (Number(nodeDistance) < Number(step - currrentLength)) {
+            // 间距过短
+            currrentLength += nodeDistance;
+            currentStart = end;
+          } else {
+            if (currrentLength == 0) {
+              sylength = nodeDistance % step;
+              var splitNum = Math.floor(nodeDistance / step);
+              var Y = -Math.sin(rotation) * step;
+              var X = Math.cos(rotation) * step;
+
+              for (var _i = 0; _i < splitNum; _i++) {
+                arrowNode.x = currentStart.x + X;
+                arrowNode.y = currentStart.y + Y;
+                currentStart = arrowNode;
+                that.addArrow(arrowNode, rotation);
               }
 
-              if (Number(nodeDistance) < Number(step - currrentLength)) {
-                // 间距过短
-                currrentLength += nodeDistance;
-                currentStart = end;
-              } else {
-                if (currrentLength == 0) {
-                  sylength = nodeDistance % step;
-                  var splitNum = Math.floor(nodeDistance / step);
-                  var Y = -Math.sin(rotation) * step;
-                  var X = Math.cos(rotation) * step;
+              currrentLength = sylength;
+              currentStart = end;
+            } else {
+              var littleStep = step - currrentLength;
 
-                  for (var i = 0; i < splitNum; i++) {
-                    arrowNode.x = currentStart.x + X;
-                    arrowNode.y = currentStart.y + Y;
-                    currentStart = arrowNode;
-                    that.addArrow(arrowNode, rotation);
-                  }
+              var _Y = -Math.sin(rotation) * littleStep;
 
-                  currrentLength = sylength;
-                  currentStart = end;
-                } else {
-                  var littleStep = step - currrentLength;
+              var _X = Math.cos(rotation) * littleStep;
 
-                  var _Y = -Math.sin(rotation) * littleStep;
+              arrowNode.x = currentStart.x + _X;
+              arrowNode.y = currentStart.y + _Y;
+              currentStart = arrowNode;
+              that.addArrow(arrowNode, rotation);
+              sylength = (nodeDistance - littleStep) % step;
 
-                  var _X = Math.cos(rotation) * littleStep;
+              var _splitNum = Math.floor((nodeDistance - littleStep) / step);
 
-                  arrowNode.x = currentStart.x + _X;
-                  arrowNode.y = currentStart.y + _Y;
-                  currentStart = arrowNode;
-                  that.addArrow(arrowNode, rotation);
-                  sylength = (nodeDistance - littleStep) % step;
+              _Y = -Math.sin(rotation) * step;
+              _X = Math.cos(rotation) * step;
 
-                  var _splitNum = Math.floor((nodeDistance - littleStep) / step);
-
-                  _Y = -Math.sin(rotation) * step;
-                  _X = Math.cos(rotation) * step;
-
-                  for (var _i = 0; _i < _splitNum; _i++) {
-                    arrowNode.x = currentStart.x + _X;
-                    arrowNode.y = currentStart.y + _Y;
-                    currentStart = arrowNode;
-                    that.addArrow(arrowNode, rotation);
-                  }
-
-                  currrentLength = sylength;
-                  currentStart = end;
-                }
+              for (var _i2 = 0; _i2 < _splitNum; _i2++) {
+                arrowNode.x = currentStart.x + _X;
+                arrowNode.y = currentStart.y + _Y;
+                currentStart = arrowNode;
+                that.addArrow(arrowNode, rotation);
               }
+
+              currrentLength = sylength;
+              currentStart = end;
             }
           }
-        });
+        }
       }
       /**
        * 新增箭头

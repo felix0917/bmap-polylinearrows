@@ -4,21 +4,19 @@ class PolylineArrows {
     constructor(mapType, map, data, icon, opts = {}) {
         this.mapType = mapType; // 地图类型，支持['BMap','BMapGL']
         this.map = map // 地图实例化对象
-        this.data = data; // geojson格式的polyline数据
+        this.data = data; // GeoJSON格式的Polyline数据
         this.icon = icon; // 箭头图标
-        this.step = defaultValue(opts.step, 90); // 箭头间距
+        this.step = defaultValue(opts.step, 90); // 箭头间距，单位px
         this.iconSize = defaultValue(opts.iconSize, { x: 12, y: 12 }); // 箭头大小，单位px
         this.correctAngle = defaultValue(opts.correctAngle, 0); // 图标角度校正：图标的起始角度应该对准水平轴朝右（---->），单位：角度制
 
-        // 私有变量
-        this.lines = [];
-        this.arrowOverlays = [];
-        this.arrowGeojsonArr = [];
-        this.moveendHandlerFunc = null;
-        this.zoomendHandlerFunc = null;
+        this.linePoints = []; // 扁平化线路坐标数组
+        this.arrowOverlays = []; // 箭头覆盖物容器
+        this.refreshHandlerFunc = null; // 箭头更新处理函数
 
         this.parseLineData();
         this.initRefreshEvent();
+        this.dispatchArrows();
     }
 
     /**
@@ -31,10 +29,10 @@ class PolylineArrows {
         let { type } = geo;
         switch (type) {
             case 'LineString':
-                this.lines = geo.coordinates;
+                this.linePoints = geo.coordinates;
                 break;
             case 'MultiLineString':
-                this.lines = geo.coordinates.flat();
+                this.linePoints = geo.coordinates.flat();
                 break;
             default:
                 console.error('error polyline data!');
@@ -47,26 +45,18 @@ class PolylineArrows {
      * 地图平移和缩放结束时触发
      */
     initRefreshEvent() {
-        this.moveendHandlerFunc = this.moveendHandler.bind(this);
-        this.zoomendHandlerFunc = this.zoomendHandler.bind(this);
+        this.refreshHandlerFunc = this.refreshHandler.bind(this);
 
-        if (this.lines && this.lines.length > 1) {
-            this.map.addEventListener('moveend', this.moveendHandlerFunc);
-            this.map.addEventListener('zoomend', this.zoomendHandlerFunc);
+        if (this.linePoints && this.linePoints.length > 1) {
+            this.map.addEventListener('moveend', this.refreshHandlerFunc);
+            this.map.addEventListener('zoomend', this.refreshHandlerFunc);
         }
     }
 
     /**
-     * 地图平移结束事件处理
+     * 地图平移缩放结束事件处理
      */
-    moveendHandler() {
-        this.dispatchArrows();
-    }
-
-    /**
-     * 地图缩放结束事件处理
-     */
-    zoomendHandler() {
+    refreshHandler() {
         this.dispatchArrows();
     }
 
@@ -75,77 +65,80 @@ class PolylineArrows {
     */
     dispatchArrows() {
         let that = this;
-        
-        // 每次更新前先清空所有箭头数据
         that.clearArrows();
 
         let step = that.step;
-        let sylength = 0;
-        let currrentLength = 0;
-        let currentStart = that.pointToPixel(that.lines[0][0], that.lines[0][1]);
+        let remainingLen = 0; // 剩余像素长度
+        let currentStart = that.pointToPixel(that.linePoints[0][0], that.linePoints[0][1]);
         let arrowNode = {};
-        that.lines.map((val, index) => {
-            if (index !== that.lines.length - 1) {
-                let start = that.pointToPixel(val[0], val[1]);
-                let end = that.pointToPixel(that.lines[index + 1][0], that.lines[index + 1][1]);
-                let [dx, dy] = [end.x - start.x, start.y - end.y];
-                if (dx !== 0 || dy !== 0) {
-                    // 都为0意味着折线中节点太近，忽略这段距离
-                    let rotation = Math.atan2(dy, dx);
-                    let nodeDistance;
-                    if (rotation === 0) {
-                        nodeDistance = dx;
-                    } else {
-                        nodeDistance = dy / Math.sin(rotation);
+        for (let i = 0; i < that.linePoints.length - 1; i++) {
+            let currentLinePoint = that.linePoints[i];
+            let nextLinePoint = that.linePoints[i + 1];
+
+            let start = that.pointToPixel(currentLinePoint[0], currentLinePoint[1]);
+            let end = that.pointToPixel(nextLinePoint[0], nextLinePoint[1]);
+            let [dx, dy] = [end.x - start.x, start.y - end.y];
+            if (dx === 0 && dy === 0) {
+                // 两节点太近，忽略这段距离
+                continue;
+            }
+
+            // 两点旋转角度差
+            let rotation = Math.atan2(dy, dx);
+
+            // 两点像素距离
+            let nodeDist;
+            if (rotation === 0) {
+                // dy=0的情况
+                nodeDist = dx;
+            } else {
+                nodeDist = dy / Math.sin(rotation);
+            }
+
+            if (Number(nodeDist + remainingLen) < Number(step)) {
+                // 两节点间距过短
+                remainingLen += nodeDist;
+                currentStart = end;
+            } else {
+                if (remainingLen == 0) {
+                    let splitNum = Math.floor(nodeDist / step);
+                    let Y = -Math.sin(rotation) * step;
+                    let X = Math.cos(rotation) * step;
+                    for (let i = 0; i < splitNum; i++) {
+                        arrowNode.x = currentStart.x + X;
+                        arrowNode.y = currentStart.y + Y;
+                        currentStart = arrowNode;
+
+                        that.addArrow(arrowNode, rotation);
                     }
 
-                    if (Number(nodeDistance) < Number(step - currrentLength)) {
-                        // 间距过短
-                        currrentLength += nodeDistance;
-                        currentStart = end;
-                    } else {
-                        if (currrentLength == 0) {
-                            sylength = nodeDistance % step;
-                            let splitNum = Math.floor(nodeDistance / step);
-                            let Y = -Math.sin(rotation) * step;
-                            let X = Math.cos(rotation) * step;
-                            for (let i = 0; i < splitNum; i++) {
-                                arrowNode.x = currentStart.x + X;
-                                arrowNode.y = currentStart.y + Y;
-                                currentStart = arrowNode;
+                    remainingLen = nodeDist % step;
+                    currentStart = end;
+                } else {
+                    let littleStep = step - remainingLen;
+                    let Y = -Math.sin(rotation) * littleStep;
+                    let X = Math.cos(rotation) * littleStep;
+                    arrowNode.x = currentStart.x + X;
+                    arrowNode.y = currentStart.y + Y;
+                    currentStart = arrowNode;
 
-                                that.addArrow(arrowNode, rotation);
-                            }
-                            currrentLength = sylength;
-                            currentStart = end;
-                        } else {
-                            let littleStep = step - currrentLength;
-                            let Y = -Math.sin(rotation) * littleStep;
-                            let X = Math.cos(rotation) * littleStep;
-                            arrowNode.x = currentStart.x + X;
-                            arrowNode.y = currentStart.y + Y;
-                            currentStart = arrowNode;
+                    that.addArrow(arrowNode, rotation);
 
-                            that.addArrow(arrowNode, rotation);
+                    remainingLen = (nodeDist - littleStep) % step;
+                    let splitNum = Math.floor((nodeDist - littleStep) / step);
+                    Y = -Math.sin(rotation) * step;
+                    X = Math.cos(rotation) * step;
+                    for (let i = 0; i < splitNum; i++) {
+                        arrowNode.x = currentStart.x + X;
+                        arrowNode.y = currentStart.y + Y;
+                        currentStart = arrowNode;
 
-                            sylength = (nodeDistance - littleStep) % step;
-                            let splitNum = Math.floor((nodeDistance - littleStep) / step);
-                            Y = -Math.sin(rotation) * step;
-                            X = Math.cos(rotation) * step;
-                            for (let i = 0; i < splitNum; i++) {
-                                arrowNode.x = currentStart.x + X;
-                                arrowNode.y = currentStart.y + Y;
-                                currentStart = arrowNode;
-
-                                that.addArrow(arrowNode, rotation);
-                            }
-                            currrentLength = sylength;
-                            currentStart = end;
-                        }
+                        that.addArrow(arrowNode, rotation);
                     }
+                    currentStart = end;
                 }
             }
-        });
+        }
     }
 
     /**
@@ -164,7 +157,6 @@ class PolylineArrows {
         }
     }
 
-
     /**
      * 使用百度地图API绘制箭头
      * @param arrowPoint 箭头像素坐标
@@ -177,7 +169,6 @@ class PolylineArrows {
         this.map.addOverlay(marker);
         this.arrowOverlays.push(marker);
     }
-
 
     /**
      * 清除箭头
