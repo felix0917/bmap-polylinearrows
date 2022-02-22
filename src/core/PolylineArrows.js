@@ -16,6 +16,7 @@ class PolylineArrows {
 
         this.parseLineData();
         this.initRefreshEvent();
+        
         // 初始化后加载箭头
         this.dispatchArrows();
     }
