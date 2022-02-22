@@ -67,28 +67,32 @@ class PolylineArrows {
     */
     dispatchArrows() {
         let that = this;
+        // 清除当前所有箭头
         that.clearArrows();
 
-        let step = that.step;
+        let step = that.step;// 箭头间距
         let remainingLen = 0; // 剩余像素长度
-        let currentStart = that.pointToPixel(that.linePoints[0][0], that.linePoints[0][1]); 
+        let currentStart = that.pointToPixel(that.linePoints[0][0], that.linePoints[0][1]); // 前一个箭头位置
         let arrowNode = {}; // 箭头对象
         for (let i = 0; i < that.linePoints.length - 1; i++) {
+            // 获取计算当前和下一坐标点
             let currentLinePoint = that.linePoints[i];
             let nextLinePoint = that.linePoints[i + 1];
-
+            
+            // 计算两坐标点像素坐标差
             let start = that.pointToPixel(currentLinePoint[0], currentLinePoint[1]);
             let end = that.pointToPixel(nextLinePoint[0], nextLinePoint[1]);
             let [dx, dy] = [end.x - start.x, start.y - end.y];
+            
+            // 两节点太近，忽略这段距离
             if (dx === 0 && dy === 0) {
-                // 两节点太近，忽略这段距离
                 continue;
             }
 
-            // 两点旋转角度差
+            // 计算两点旋转角度差
             let rotation = Math.atan2(dy, dx);
 
-            // 两点像素距离
+            // 计算两点像素距离
             let nodeDist;
             if (rotation === 0) {
                 // dy=0的情况
@@ -103,29 +107,41 @@ class PolylineArrows {
                 currentStart = end;
             } else {
                 if (remainingLen == 0) {
+                    // 计算两节点距离按照箭头间距分割整数
                     let splitNum = Math.floor(nodeDist / step);
+                    
+                    // 计算下一箭头相对上一箭头沿着X、Y轴移动像素距离
                     let Y = -Math.sin(rotation) * step;
                     let X = Math.cos(rotation) * step;
+                    
+                    // 按照固定间距在两节点之间线段上新增箭头
                     for (let i = 0; i < splitNum; i++) {
                         arrowNode.x = currentStart.x + X;
                         arrowNode.y = currentStart.y + Y;
                         currentStart = arrowNode;
-
+                        
+                        // 新增箭头
                         that.addArrow(arrowNode, rotation);
                     }
 
+                    // 记录剩余线段像素长度
                     remainingLen = nodeDist % step;
+                    
+                    // 更新前一箭头位置
                     currentStart = end;
                 } else {
+                    // 先处理剩余线段长度，切分绘制思路同上
                     let littleStep = step - remainingLen;
                     let Y = -Math.sin(rotation) * littleStep;
                     let X = Math.cos(rotation) * littleStep;
                     arrowNode.x = currentStart.x + X;
                     arrowNode.y = currentStart.y + Y;
                     currentStart = arrowNode;
-
+                    
+                    // 新增箭头
                     that.addArrow(arrowNode, rotation);
 
+                    // 再处理除去剩余线段的其他部分，切分绘制思路同上
                     remainingLen = (nodeDist - littleStep) % step;
                     let splitNum = Math.floor((nodeDist - littleStep) / step);
                     Y = -Math.sin(rotation) * step;
@@ -134,7 +150,8 @@ class PolylineArrows {
                         arrowNode.x = currentStart.x + X;
                         arrowNode.y = currentStart.y + Y;
                         currentStart = arrowNode;
-
+                        
+                        // 新增箭头
                         that.addArrow(arrowNode, rotation);
                     }
                     currentStart = end;
