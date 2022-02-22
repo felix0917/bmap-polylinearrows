@@ -1,0 +1,30 @@
+{
+    "sourceFile": "README.md",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 3,
+            "patches": [
+                {
+                    "date": 1645494504985,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1645494587838,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -4,16 +4,20 @@\n \n \n ### Developing\n \n-**build**\n+###### **build**\n \n ```js\n npm run build \n npm run build-min\n ```\n \n-**examples**\n+###### **examples**\n \n ```js\n npm run start & http://localhost:3000\n ```\n+\n+## API\n+\n+###### MapboxLayerSwitcher constructor options:\n"
+                },
+                {
+                    "date": 1645495120538,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,9 +1,54 @@\n A BMap plug-in to define and draw patterns on existing Polylines or along coordinate paths.\n \n ### Usage\n \n+###### BMapGL\n \n+```js\n+let map = new BMapGL.Map('container'); \n+map.centerAndZoom(new BMapGL.Point(121.5149319, 31.268328), 17); \n+map.enableScrollWheelZoom(true); \n+\n+let data = {\n+    geometry: {\n+        \"type\": \"MultiLineString\",\n+            \"coordinates\": [\n+                [\n+                    [\n+                        121.50259791977119,\n+                        31.234271035048522\n+                    ],\n+                    [\n+                        121.5028609436245,\n+                        31.234037681240462\n+                    ]\n+                ]\n+            ]\n+    }\n+}\n+\n+let pts = [];\n+data.geometry.coordinates[0].forEach(coor => {\n+    pts.push(new BMapGL.Point(coor[0], coor[1]));\n+})\n+let polyline = new BMapGL.Polyline(pts, {\n+     strokeColor: 'blue',\n+     strokeWeight: 10,\n+     strokeOpacity: 0.6\n+});\n+map.addOverlay(polyline);\n+\n+let icon = createSingleArrowIcon()\n+let polylineArrows = new PolylineArrows('BMapGL', map, data, icon, { correctAngle: 90 });\n+```\n+\n+### BMap\n+\n+```\n+just replace BMapGL to BMap\n+```\n+\n ### Developing\n \n ###### **build**\n \n"
+                },
+                {
+                    "date": 1645496009600,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,6 +1,9 @@\n A BMap plug-in to define and draw patterns on existing Polylines or along coordinate paths.\n \n+百度地图线路自定义方向箭头插件，支持BMap和BMapGL两个版本\n+\n+\n ### Usage\n \n ###### BMapGL\n \n"
+                }
+            ],
+            "date": 1645494504985,
+            "name": "Commit-0",
+            "content": "A BMap plug-in to define and draw patterns on existing Polylines or along coordinate paths.\n\n### Usage\n\n\n### Developing\n\n**build**\n\n```js\nnpm run build \nnpm run build-min\n```\n\n**examples**\n\n```js\nnpm run start & http://localhost:3000\n```\n"
+        }
+    ]
+}
