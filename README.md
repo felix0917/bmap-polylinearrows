@@ -2,7 +2,7 @@ A BMap plug-in to define and draw patterns on existing Polylines or along coordi
 
 百度地图线路自定义方向箭头插件，支持BMap和BMapGL两个版本
 
-![./readme/readme.png]()
+![](https://github.com/felix0917/bmap-polylinearrows/readme/readme.png)
 
 
 ### Usage
