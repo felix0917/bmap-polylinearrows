@@ -71,8 +71,8 @@ class PolylineArrows {
 
         let step = that.step;
         let remainingLen = 0; // 剩余像素长度
-        let currentStart = that.pointToPixel(that.linePoints[0][0], that.linePoints[0][1]);
-        let arrowNode = {};
+        let currentStart = that.pointToPixel(that.linePoints[0][0], that.linePoints[0][1]); 
+        let arrowNode = {}; // 箭头对象
         for (let i = 0; i < that.linePoints.length - 1; i++) {
             let currentLinePoint = that.linePoints[i];
             let nextLinePoint = that.linePoints[i + 1];
