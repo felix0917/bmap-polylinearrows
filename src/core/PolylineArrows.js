@@ -8,7 +8,7 @@ class PolylineArrows {
         this.icon = icon; // 箭头图标
         this.step = defaultValue(opts.step, 90); // 箭头间距，单位px
         this.iconSize = defaultValue(opts.iconSize, { x: 12, y: 12 }); // 箭头大小，单位px
-        this.correctAngle = defaultValue(opts.correctAngle, 0); // 图标角度校正：图标的起始角度应该对准水平轴朝右（---->），单位：角度制
+        this.correctAngle = defaultValue(opts.correctAngle, 0); // 图标角度校正：图标的起始角度应该对准水平轴朝右（-->），单位：角度制
 
         this.linePoints = []; // 扁平化线路坐标数组
         this.arrowOverlays = []; // 箭头覆盖物容器
@@ -16,9 +16,7 @@ class PolylineArrows {
 
         this.parseLineData();
         this.initRefreshEvent();
-        
-        // 初始化后加载箭头
-        this.dispatchArrows();
+        this.dispatchArrows(); // 初始化后加载箭头
     }
 
     /**
@@ -67,6 +65,7 @@ class PolylineArrows {
     */
     dispatchArrows() {
         let that = this;
+        
         // 清除当前所有箭头
         that.clearArrows();
 
