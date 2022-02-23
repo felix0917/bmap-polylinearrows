@@ -1,4 +1,4 @@
-A BMap plug-in to define and draw patterns on existing Polylines or along coordinate paths.
+A BMap plug-in to define and draw patterns on existing Polylines.
 
 百度地图线路自定义方向箭头插件，支持BMap和BMapGL两个版本
 
